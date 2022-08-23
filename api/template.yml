@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ImageURI:
+    Type: String
+    Default: '583684070440.dkr.ecr.eu-central-1.amazonaws.com/ssl-websites:1.4'
+Metadata:
+  Dockerfile: Dockerfile
+  DockerContext: .
+Resources:
+  ServiceApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: SSLApi
+      StageName: Prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+        AllowCredentials: "'*'"
+  WebsitesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Websites
+      AttributeDefinitions:
+        - AttributeName: domain
+          AttributeType: S
+      KeySchema:
+        - AttributeName: domain
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+  WebsitesFetcher:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      PackageType: Image
+      ImageConfig:
+        Command: [ "app.fetch_processed_data" ]
+      ImageUri: !Ref ImageURI
+      Policies:
+        - AmazonDynamoDBReadOnlyAccess
+      Events:
+        FetchApi:
+          Type: Api
+          Properties:
+            Path: /get_list
+            Method: GET
+            RestApiId: !Ref ServiceApi
+
+  RunTestOnWebsites:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      PackageType: Image
+      ImageConfig:
+        Command: [ "app.update_websites" ]
+      ImageUri: !Ref ImageURI
+      Timeout: 900
+      MemorySize: 1024
+      Policies:
+        - AmazonDynamoDBFullAccess
+      Events:
+        WarmingSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(48 hours)
+            Input: '{"warm":" "}'
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${ServiceApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/get_list
+    Description: The URL of the API Gateway you should get the list of websites

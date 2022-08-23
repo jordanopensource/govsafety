@@ -1,0 +1,13 @@
+FROM public.ecr.aws/lambda/python:3.6
+
+
+
+RUN pip install --upgrade pip
+RUN pip install pshtt requests
+RUN python3 -m pip install --upgrade requests
+
+COPY app.py ${LAMBDA_TASK_ROOT}
+COPY gov_websites_list.csv .
+
+
+CMD ["app.fetch_processed_data"]

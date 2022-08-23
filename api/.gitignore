@@ -1,0 +1,7 @@
+*/venv
+venv
+.aws-sam
+
+creds.bash
+
+.idea
